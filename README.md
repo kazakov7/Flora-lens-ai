@@ -1,115 +1,289 @@
 # Flora Lens AI
 
-Flora Lens AI is a local, full-stack plant recognition application. It accepts an uploaded photo or a browser camera capture and returns the five most likely scientific names from a genuine PlantCLEF 2024 image-classification model.
+**Plant species recognition from photos and live camera captures, powered by a real PlantCLEF 2024 model.**
 
-## Features
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.2-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![PlantCLEF](https://img.shields.io/badge/Model-PlantCLEF%202024-315C45)](https://huggingface.co/gerald29/plantclef2024)
 
-- Real pretrained DINOv2/PlantCLEF inference — no placeholder predictions
-- Top-5 scientific-name results with model scores and inference time
-- Drag-and-drop upload with preview, validation, and a 10 MB limit
-- Camera capture with manual scanning and a non-overlapping 8-second auto-scan
+Flora Lens AI is a full-stack computer vision application that identifies plants from uploaded images or browser camera frames. It runs genuine DINOv2-based inference and returns five ranked scientific-name predictions with model scores and inference time.
+
+> Plant identification is an AI estimate. Do not use the result to decide whether a plant is edible, medicinal, toxic, or safe to touch.
+
+## Highlights
+
+- Real pretrained PlantCLEF inference — no generated or placeholder predictions
+- 7,806 supported plant species
+- Top-5 scientific names, PlantNet species IDs, scores, and inference timing
+- Drag-and-drop upload with image preview
+- Manual camera capture and controlled 8-second auto-recognition
+- Request locking that prevents overlapping camera inference
+- JPG, PNG, and WebP validation with a 10 MB upload limit
+- EXIF orientation correction and RGB conversion
 - Responsive, accessible botanical interface
-- Consistent API errors for invalid, unsupported, and oversized files
-- One reusable model instance loaded during API startup
+- CPU inference by default, with optional CUDA or Apple MPS support
+- Model loaded once and reused across requests
+
+## Application flow
+
+```text
+Upload or camera capture
+          │
+          ▼
+React + TypeScript frontend
+          │  multipart image
+          ▼
+FastAPI /predict endpoint
+          │
+          ▼
+Official image preprocessing → DINOv2 PlantCLEF model
+          │
+          ▼
+Top-5 species → scientific-name mapping → UI results
+```
 
 ## Technology
 
-- React 19, TypeScript, Vite
-- FastAPI, Python 3.11
-- PyTorch, Hugging Face Transformers
-- Pillow
+| Layer | Technology |
+| --- | --- |
+| Frontend | React 19, TypeScript, Vite |
+| API | Python 3.11, FastAPI, Uvicorn |
+| AI inference | PyTorch, Hugging Face Transformers |
+| Image handling | Pillow |
+| Tests | Pytest, FastAPI TestClient |
 
 ## Model
 
-- Hugging Face model: [`gerald29/plantclef2024`](https://huggingface.co/gerald29/plantclef2024)
-- Official PlantCLEF reference: [Zenodo record 10848263](https://zenodo.org/records/10848263)
-- Architecture: DINOv2 image classifier
-- Parameters: 98,578,302
-- Supported output classes: **7,806**
-- Input preprocessing: shortest edge 256 px, center crop 224 × 224, ImageNet normalization
+| Property | Value |
+| --- | --- |
+| Hugging Face ID | [`gerald29/plantclef2024`](https://huggingface.co/gerald29/plantclef2024) |
+| Architecture | DINOv2 image classifier |
+| Parameters | 98,578,302 |
+| Output classes | 7,806 |
+| Input | 224 × 224 center crop after resizing the shortest edge to 256 px |
+| Normalization | ImageNet mean and standard deviation |
+| Default device | CPU |
 
-The Hugging Face configuration maps output indices to PlantNet species IDs. `backend/app/species_labels.json` resolves the same 7,806 output positions to scientific names. The ordering was checked against the official PlantCLEF example: output index 2 maps to species ID `1355870`, `Crepis foetida L.`
+The Hugging Face configuration maps model outputs to PlantNet species IDs. [`species_labels.json`](backend/app/species_labels.json) maps the same output positions to scientific names. The mapping order was checked against the official PlantCLEF example: output index `2` corresponds to species ID `1355870`, **Crepis foetida L.**
 
-The selected Hugging Face repository declares an MIT license. The upstream DINOv2 code and weights are Apache-2.0. The official PlantCLEF Zenodo record should be reviewed directly before redistribution or commercial use because its displayed rights metadata does not currently state a license. No commercial-use claim is made here.
+Sources:
 
-## Install
+- [Hugging Face model repository](https://huggingface.co/gerald29/plantclef2024)
+- [Official PlantCLEF 2024 model record](https://zenodo.org/records/10848263)
+- [DINOv2 repository](https://github.com/facebookresearch/dinov2)
 
-Requirements: Python 3.11+, Node.js 20+, npm, and approximately 1 GB of free disk space for dependencies and the model cache.
+The application downloads the approximately 394 MB Transformers model on first startup and stores it in the Hugging Face cache. It does not download the 2.3 GB original Zenodo archive.
+
+## Project structure
+
+```text
+Flora-lens-ai/
+├── backend/
+│   ├── app/
+│   │   ├── inference.py          # Model loading and Top-5 inference
+│   │   ├── main.py               # FastAPI routes and image validation
+│   │   └── species_labels.json   # 7,806 scientific names
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── App.tsx               # Upload, camera, and result experience
+│   │   ├── main.tsx
+│   │   └── styles.css
+│   ├── package.json
+│   └── vite.config.ts
+├── tests/
+│   └── test_api.py
+├── AGENTS.md
+└── README.md
+```
+
+## Requirements
+
+- Python 3.11 or newer
+- Node.js 20 or newer
+- npm
+- Approximately 1 GB of available disk space for Python packages and model cache
+
+## Quick start
+
+Both the backend and frontend must be running.
+
+### 1. Install the backend
+
+From the repository root:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip
 python -m pip install -r backend/requirements.txt
-
-cd frontend
-npm install
-cd ..
 ```
 
-The model downloads from Hugging Face on the first backend start and is cached locally. The large 2.3 GB original Zenodo archive is not needed.
+### 2. Start the API
 
-## Run
-
-Start the API from the project root:
+Keep this terminal open:
 
 ```bash
 source .venv/bin/activate
-HF_HOME="$PWD/.cache/huggingface" uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+HF_HOME="$PWD/.cache/huggingface" \
+  uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Start the frontend in a second terminal:
+The first start downloads and initializes the model. Wait for:
+
+```text
+Application startup complete.
+```
+
+### 3. Install and start the frontend
+
+Open a second terminal:
 
 ```bash
 cd frontend
+npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Camera access requires browser permission and a secure context; localhost is accepted by modern browsers.
+Open the local URL printed by Vite, normally [http://127.0.0.1:5173](http://127.0.0.1:5173). Vite may select another port, such as `5174`, when `5173` is already occupied.
 
-CPU inference is the default. Supported acceleration can be selected explicitly with `FLORA_DEVICE=auto`, `FLORA_DEVICE=mps`, or `FLORA_DEVICE=cuda` before the backend command.
+Camera access requires browser permission and a secure context. Localhost is treated as a secure context by current mainstream browsers.
+
+## Configuration
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `FLORA_DEVICE` | `cpu` | Use `cpu`, `cuda`, `mps`, or `auto` |
+| `HF_HOME` | Hugging Face default | Model cache directory |
+| `VITE_API_URL` | `/api` | Frontend API base URL; `/api` uses the local Vite proxy |
+
+Example automatic hardware selection:
+
+```bash
+FLORA_DEVICE=auto HF_HOME="$PWD/.cache/huggingface" \
+  uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```
 
 ## API
 
-### `GET /health`
+Interactive OpenAPI documentation is available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) while the backend is running.
 
-Returns application status, model identifier, readiness, and active device.
+### Health check
 
-### `POST /predict`
-
-Send multipart form data with one `file` field containing a JPG, PNG, or WebP image up to 10 MB.
-
-```bash
-curl -X POST -F "file=@plant.jpg" http://127.0.0.1:8000/predict
+```http
+GET /health
 ```
 
-The response contains the actual model identifier, five ranked predictions, PlantNet species IDs, softmax scores, and inference time.
+Example response:
 
-## Verification
+```json
+{
+  "status": "ok",
+  "model": "gerald29/plantclef2024",
+  "model_ready": true,
+  "device": "cpu"
+}
+```
 
-Completed in the provided macOS x86_64 environment:
+### Plant prediction
 
-- Real model load: passed — 7,806 outputs and 98,578,302 parameters
-- Real image inference: passed — Top-5 scientific-name predictions returned
-- Backend tests: `5 passed`
-- Frontend TypeScript and production build: passed
-- Live `/health`: passed (`200`)
-- Live `/predict` with a real image: passed (`200`)
-- Invalid image rejection: passed (`400`)
-- Oversized upload rejection: passed (`413`)
-- Vite-to-FastAPI proxy: passed (`200`)
+```http
+POST /predict
+Content-Type: multipart/form-data
+```
 
-Run the automated checks with:
+The multipart field must be named `file`.
+
+```bash
+curl -X POST \
+  -F "file=@plant.jpg" \
+  http://127.0.0.1:8000/predict
+```
+
+Example response shape:
+
+```json
+{
+  "model": "gerald29/plantclef2024",
+  "predictions": [
+    {
+      "rank": 1,
+      "scientific_name": "Orchis italica Poir.",
+      "species_id": "1361678",
+      "score": 0.62
+    }
+  ],
+  "inference_time_ms": 984.2
+}
+```
+
+Scores are softmax model estimates, not guaranteed or calibrated identification accuracy.
+
+## Testing
+
+Run backend tests from the repository root:
 
 ```bash
 HF_HOME="$PWD/.cache/huggingface" .venv/bin/python -m pytest -q
-cd frontend && npm run build
 ```
+
+Run the TypeScript check and production build:
+
+```bash
+cd frontend
+npm run build
+```
+
+Verified locally:
+
+- Backend API tests: **5 passed**
+- Frontend TypeScript and production build: passed
+- Real model initialization: passed
+- Real Top-5 image inference: passed
+- Invalid image rejection: passed (`400`)
+- Oversized upload rejection: passed (`413`)
+- Vite-to-FastAPI proxy integration: passed
+
+## Troubleshooting
+
+### “The recognition API is offline”
+
+The frontend is running, but FastAPI is not reachable. Start the backend from the repository root and keep its terminal open:
+
+```bash
+source .venv/bin/activate
+HF_HOME="$PWD/.cache/huggingface" \
+  uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```
+
+Confirm it is ready:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+### The first backend startup is slow
+
+The model must be downloaded and initialized once. Later starts reuse the local cache.
+
+### Camera access fails
+
+- Allow camera permission in the browser.
+- Use localhost or HTTPS.
+- Close other applications that may be using the camera.
+- Upload an image instead if the device does not expose `getUserMedia`.
 
 ## Limitations
 
-- Scores are model estimates, not calibrated probabilities or guaranteed identifications.
-- The training flora focuses on southwestern Europe, so plants outside that distribution can be misidentified.
-- A single photo may omit diagnostic traits needed to distinguish similar species or hybrids.
-- Camera permission and capture behavior require testing on the target browser/device.
-- Do not use predictions to decide whether a plant is edible, medicinal, toxic, or safe to touch.
+- The training flora focuses on southwestern Europe, so species outside that distribution may be misidentified.
+- Similar species and hybrids may require details that are not visible in a single image.
+- Poor lighting, blur, occlusion, or multiple plants can reduce prediction quality.
+- The application does not provide medical, toxicological, or food-safety advice.
+- CPU inference latency depends on the host machine.
 
+## Licensing and attribution
+
+The Hugging Face repository declares an MIT license. The upstream DINOv2 code and weights are distributed under Apache-2.0. Review the official PlantCLEF Zenodo record and all upstream terms before redistributing model weights or claiming commercial-use rights.
+
+This repository does not currently include a license for the Flora Lens AI application source code.
